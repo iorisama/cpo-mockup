@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import MachineCard from './components/MachineCard';
 import NotificationPanel from './components/NotificationPanel';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { localGenerateData } from './utils/localFallback';
 
 function App() {
   const [machines, setMachines] = useState([]);
@@ -46,14 +47,19 @@ function App() {
   // Real-time tick fetching from backend every 1 second
   useEffect(() => {
     const fetchInterval = setInterval(async () => {
+      let data;
       try {
         const response = await fetch('/api/data');
-        if (!response.ok) return;
-        const data = await response.json();
-        
-        setMachines(data.machines);
-        
-        setNotifications(prev => {
+        if (!response.ok) throw new Error("API not accessible");
+        data = await response.json();
+      } catch (err) {
+        // Jika gagal fetch (misal jalan statis di GitHub Pages), jalankan generator lokal
+        data = localGenerateData();
+      }
+
+      setMachines(data.machines);
+      
+      setNotifications(prev => {
           // Bunyikan alert jika ada anomali baru (berdasarkan ID terbaru yang berbeda)
           if (data.notifications.length > 0 && 
               (!prev.length || data.notifications[0].id !== prev[0].id)) {
@@ -81,9 +87,6 @@ function App() {
 
         setCurrentTime(new Date());
 
-      } catch (err) {
-        console.error('Error fetching data from backend:', err);
-      }
     }, 1000);
 
     return () => clearInterval(fetchInterval);
